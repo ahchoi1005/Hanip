@@ -111,6 +111,7 @@ function render() {
   else if (S.tab === 'rests') renderRests(F, L);
   else renderMap(F);
   if (S.detail) renderDetail();
+  if (S.dview) renderDishView();
 }
 function renderDishes(F, L) {
   const all = [...S.dishes.values()];
@@ -130,7 +131,7 @@ function renderDishes(F, L) {
 }
 function dishCard(d) {
   const r = S.rest.get(d.restaurant_id); const p = (d.photos || [])[0]; const u = p && photoUrl(p);
-  return `<button class="card" data-a="dish" data-id="${d.id}"><div class="ph">${u ? `<img src="${esc(u)}" alt="" loading="lazy">` : `<span class="ini">${esc((d.name || '?').slice(0, 1))}</span>`}<span class="score">${badge(d.rating)}</span></div>
+  return `<button class="card" data-a="viewdish" data-id="${d.id}"><div class="ph">${u ? `<img src="${esc(u)}" alt="" loading="lazy">` : `<span class="ini">${esc((d.name || '?').slice(0, 1))}</span>`}<span class="score">${badge(d.rating)}</span></div>
   <div class="body"><div class="t">${esc(d.name)}</div><div class="s">${esc(r ? r.name : '식당 정보 없음')}${d.date ? ' · ' + dshow(d.date) : ''}</div>${(d.tags || []).length ? `<div class="tags">${d.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}</div></button>`;
 }
 function listChips(extra) {
@@ -205,6 +206,32 @@ function renderDetail() {
     ${d.note ? `<div class="note">${esc(d.note)}</div>` : ''}
     <div><button class="linkbtn" data-a="dish" data-id="${d.id}">수정</button></div></div>`).join('') || '<div class="empty">아직 기록한 메뉴가 없어요.</div>'}</div>
   <div class="actions"><button class="btn grow" data-a="add" data-r="${r.id}">+ 이 식당에 메뉴 추가</button></div></div>`;
+  el.hidden = false;
+}
+
+/* ---------- dish view ---------- */
+async function openDishView(id) {
+  S.dview = id; renderDishView(); $('#dview').scrollTop = 0;
+  const d = S.dishes.get(id); const ph = (d && d.photos) || [];
+  if (ph.some(p => !S.urls.has(p.path))) { await ensureUrls(ph); if (S.dview === id) renderDishView(); }
+}
+function closeDishView() { S.dview = null; const el = $('#dview'); el.hidden = true; el.innerHTML = ''; }
+function renderDishView() {
+  const el = $('#dview'), d = S.dishes.get(S.dview);
+  if (!d) { closeDishView(); return; }
+  const r = S.rest.get(d.restaurant_id) || {};
+  const ph = d.photos || [];
+  const others = dishesOf(d.restaurant_id).filter(x => x.id !== d.id).sort((a, b) => b.rating - a.rating);
+  el.innerHTML = `<div class="wrap"><div class="ovhead"><button class="back" data-a="closedview">‹ 목록</button><button class="btn small" data-a="dish" data-id="${d.id}">수정</button></div>
+  ${ph.length ? `<img class="hero" src="${esc(photoUrl(ph[0]))}" alt="" data-a="photo" data-p="${esc(ph[0].path)}">` : `<div class="hero-empty">${esc((d.name || '?').slice(0, 1))}</div>`}
+  ${ph.length > 1 ? `<div class="strip" style="margin-top:8px">${ph.slice(1).map(p => `<img src="${esc(photoUrl(p))}" alt="" data-a="photo" data-p="${esc(p.path)}" loading="lazy">`).join('')}</div>` : ''}
+  <div class="dv-head"><div class="dtitle">${esc(d.name)}</div>${badge(d.rating)}</div>
+  <div class="help" style="font-size:14px;margin-top:4px">${[dshow(d.date), d.price].filter(Boolean).map(esc).join(' · ')}</div>
+  ${(d.tags || []).length ? `<div class="tags" style="margin-top:8px">${d.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
+  <button class="restlink" data-a="rest" data-id="${esc(r.id || '')}"><div style="min-width:0"><div class="t">${esc(r.name || '식당 정보 없음')}</div><div class="s">${esc(r.address || '')}</div></div><span class="linkbtn" style="white-space:nowrap;flex:none">식당 보기 ›</span></button>
+  ${d.note ? `<div class="sec">메모</div><div class="dv-note">${esc(d.note)}</div>` : ''}
+  ${others.length ? `<div class="sec">이 식당의 다른 메뉴</div><div class="rows">${others.map(x => `<button class="rrow" data-a="viewdish" data-id="${x.id}"><div class="main"><div class="t">${esc(x.name)}</div><div class="s">${dshow(x.date)}</div></div>${badge(x.rating)}</button>`).join('')}</div>` : ''}
+  </div>`;
   el.hidden = false;
 }
 
@@ -548,7 +575,9 @@ const H = {
   list: a => { S.list = a.dataset.v || null; render(); },
   add: a => openDish({ restId: a.dataset.r || null }),
   dish: a => openDish({ dishId: a.dataset.id }),
-  rest: a => { if (S.map) S.map.closePopup(); openDetail(a.dataset.id); },
+  viewdish: a => openDishView(a.dataset.id),
+  closedview: () => closeDishView(),
+  rest: a => { if (S.map) S.map.closePopup(); if (!a.dataset.id) return; closeDishView(); openDetail(a.dataset.id); },
   closedetail: () => { S.detail = null; $('#detail').hidden = true; },
   editrest: a => openRest(a.dataset.id),
   newrest: () => openRest(null),
@@ -603,7 +632,10 @@ function showLogin() { $('#boot').hidden = true; $('#app').hidden = true; $('#fa
     $('#boot').innerHTML = '<div class="empty" style="margin-top:15vh"><h2>설정이 필요해요</h2>config.js 파일에 Supabase 주소와 키를 넣어 주세요.<br>설치 안내서 3단계를 보세요.</div>'; return;
   }
   if (!window.supabase) { $('#boot').innerHTML = '<div class="empty" style="margin-top:15vh"><h2>불러오지 못했어요</h2>인터넷 연결을 확인하고 새로고침해 주세요.</div>'; return; }
-  sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+  // 주소 뒤에 /rest/v1 같은 경로가 붙어 있어도 프로젝트 주소만 남긴다
+  const m = String(CFG.SUPABASE_URL).trim().match(/https?:\/\/[^/\s]+/);
+  const baseUrl = m ? m[0] : String(CFG.SUPABASE_URL).trim();
+  sb = window.supabase.createClient(baseUrl, String(CFG.SUPABASE_ANON_KEY).trim(), { auth: { persistSession: true, autoRefreshToken: true } });
   const { data } = await sb.auth.getSession();
   if (data.session) { S.user = data.session.user; showApp(); } else showLogin();
   sb.auth.onAuthStateChange((ev, session) => { if (ev === 'SIGNED_OUT') { S.user = null; showLogin(); } else if (session) S.user = session.user; });

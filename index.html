@@ -109,6 +109,14 @@ h1{font-family:var(--f-display);font-weight:400;font-size:30px;margin:0;letter-s
 .dish .note{font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
 .strip{display:flex;gap:8px;overflow-x:auto}
 .strip img{height:120px;width:auto;border-radius:10px;flex:none;cursor:zoom-in;max-width:none;background:var(--soft)}
+.hero{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:16px;display:block;background:var(--soft);cursor:zoom-in;max-width:100%}
+.hero-empty{width:100%;aspect-ratio:16/7;border-radius:16px;background:var(--soft);display:grid;place-items:center;font-family:var(--f-display);font-size:56px;color:var(--muted)}
+.dv-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:14px}
+.dv-head .dtitle{margin:0}
+.dv-head .badge{font-size:24px;padding:5px 12px}
+.restlink{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:12px}
+.restlink .t{font-weight:600;overflow-wrap:anywhere}.restlink .s{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.dv-note{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere}
 .sec{font-size:12px;letter-spacing:.08em;color:var(--muted);margin:18px 0 8px;font-weight:600}
 .f{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;position:relative}
 .f label,.f .lbl{font-size:13px;font-weight:600;color:var(--muted)}
@@ -179,6 +187,7 @@ textarea.in{min-height:80px;resize:vertical}
 </div>
 <button class="btn fab" data-a="add" id="fab" hidden>+ 기록하기</button>
 <section id="detail" class="ov" hidden></section>
+<section id="dview" class="ov" hidden></section>
 <section id="sheet" class="ov" hidden></section>
 <div id="lb" class="lb" hidden data-a="lbclose"><img id="lbimg" alt=""></div>
 <div id="toast" class="toast" hidden></div>
