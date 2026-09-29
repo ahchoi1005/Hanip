@@ -198,6 +198,7 @@ function renderDetail() {
   el.innerHTML = `<div class="wrap"><div class="ovhead"><button class="back" data-a="closedetail">‹ 목록</button><button class="linkbtn" data-a="editrest" data-id="${r.id}">식당 수정</button></div>
   <div class="dtitle">${esc(r.name)}</div>
   <div class="addr"><span>${esc(r.address || '주소 없음')}</span><a href="${mapUrl(r.name, r.address)}" target="_blank" rel="noopener">구글 지도에서 열기 ↗</a></div>
+  ${r.lat == null ? `<div class="note-box" style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span>지도 위치가 없어서 지도 탭에 안 보여요.</span><button class="btn small" data-a="pickrest" data-id="${r.id}">📍 위치 찍기</button></div>` : ''}
   <div class="stat">${a != null ? `<span>평균 ${badge(a)}</span>` : ''}<span class="help">메뉴 ${ds.length}개</span></div>
   <div class="chips wrapc">${S.lists.map(l => `<button class="chip ${(r.lists || []).includes(l.id) ? 'on' : ''}" data-a="togglelist" data-id="${r.id}" data-v="${l.id}">${(r.lists || []).includes(l.id) ? '✓ ' : ''}${esc(l.name)}</button>`).join('')}<button class="chip add" data-a="lists">+ 리스트</button></div>
   <div class="sec">먹은 메뉴</div>
@@ -239,7 +240,7 @@ function renderDishView() {
 
 /* ---------- sheets ---------- */
 function openSheet(html) { const s = $('#sheet'); s.innerHTML = `<div class="wrap">${html}</div>`; s.hidden = false; s.scrollTop = 0; }
-function closeSheet() { const s = $('#sheet'); s.hidden = true; s.innerHTML = ''; if (E && E.newFiles) E.newFiles.forEach(f => URL.revokeObjectURL(f.url)); E = null; }
+function closeSheet() { if (E && E.pickMap) { try { E.pickMap.remove(); } catch (e) {} } const s = $('#sheet'); s.hidden = true; s.innerHTML = ''; if (E && E.newFiles) E.newFiles.forEach(f => URL.revokeObjectURL(f.url)); E = null; }
 
 /* place picker used by dish + restaurant editors */
 function placePicker(boxSel, onPick, initialName) {
@@ -384,25 +385,51 @@ async function delDish() {
 }
 
 /* ---------- restaurant editor ---------- */
-function openRest(id) {
+function openRest(id, withPicker) {
   const r = id ? S.rest.get(id) : null;
   E = { kind: 'rest', id, lists: r ? [...(r.lists || [])] : (S.list ? [S.list] : []), lat: r ? r.lat : null, lng: r ? r.lng : null, armDel: false };
   openSheet(`<div class="ovhead"><button class="back" data-a="cancel">취소</button><h2>${r ? '식당 수정' : '식당 추가'}</h2><button class="btn" id="r-save" data-a="saverest">저장</button></div>
   ${r ? '' : '<div class="note-box">가보고 싶은 곳처럼 아직 먹은 메뉴가 없는 식당을 리스트에 담을 때 쓰세요.</div>'}
   <div class="f"><span class="lbl">지도에서 찾기</span><div id="r-pp"></div></div>
   <div class="f"><label for="r-name">식당 이름</label><input id="r-name" class="in" value="${esc(r ? r.name : '')}"></div>
-  <div class="f"><label for="r-addr">주소</label><input id="r-addr" class="in" value="${esc(r ? r.address || '' : '')}"><div class="help" id="r-loc"></div></div>
+  <div class="f"><label for="r-addr">주소</label><input id="r-addr" class="in" value="${esc(r ? r.address || '' : '')}"><div class="help" id="r-loc"></div>
+  <button type="button" class="btn ghost small" data-a="pickmap" style="align-self:flex-start">📍 지도에서 위치 찍기</button>
+  <div id="r-pick" hidden><div id="r-pickmap" style="height:280px;border-radius:12px;overflow:hidden;border:1px solid var(--line)"></div><div class="help" style="margin-top:4px">지도를 움직여 식당 자리를 누르세요. 핀을 끌어서 옮길 수도 있어요.</div></div></div>
   <div class="f"><span class="lbl">리스트</span><div class="chips wrapc" id="r-lists"></div></div>
   <div class="err" id="e-err"></div>
   ${r ? `<div class="actions"><button class="btn danger" id="r-del" data-a="delrest">식당과 메뉴 기록 모두 삭제</button></div>` : ''}`);
   placePicker('#r-pp', pick => {
     if (pick.local) { const x = S.rest.get(pick.local); pick = { name: x.name, address: x.address, lat: x.lat, lng: x.lng }; }
-    $('#r-name').value = pick.name; $('#r-addr').value = pick.address || ''; E.lat = pick.lat; E.lng = pick.lng; $('#pp-sug').hidden = true; renderLoc();
+    $('#r-name').value = pick.name; $('#r-addr').value = pick.address || ''; E.lat = pick.lat; E.lng = pick.lng; E.manualLoc = false; E.addrChanged = false; if (E.pickPin && pick.lat != null) { E.pickPin.setLatLng([pick.lat, pick.lng]); E.pickMap.setView([pick.lat, pick.lng], 17); } $('#pp-sug').hidden = true; renderLoc();
   });
-  $('#r-addr').addEventListener('input', () => { E.addrChanged = true; renderLoc(); });
+  $('#r-addr').addEventListener('input', () => { if (!E.manualLoc) E.addrChanged = true; renderLoc(); });
   renderLoc(); renderRestLists();
+  if (withPicker) openPickMap();
 }
-function renderLoc() { const el = $('#r-loc'); if (!el) return; el.innerHTML = E.lat != null && !E.addrChanged ? '지도 위치 있음 ✓' : '저장할 때 주소로 지도 위치를 찾아요.'; }
+function renderLoc() {
+  const el = $('#r-loc'); if (!el) return;
+  el.innerHTML = E.manualLoc ? '지도에서 찍은 위치로 저장해요 ✓' : E.lat != null && !E.addrChanged ? '지도 위치 있음 ✓' : '저장할 때 주소로 지도 위치를 찾아요. 못 찾으면 지도에서 직접 찍어 주세요.';
+}
+const pickIcon = () => L.divIcon({ className: 'pick-pin', iconSize: [24, 24], iconAnchor: [12, 12] });
+function openPickMap() {
+  if (!window.L) { toast('지도를 불러오지 못했어요.'); return; }
+  const box = $('#r-pick'); if (!box) return; box.hidden = false;
+  if (E.pickMap) { E.pickMap.invalidateSize(); return; }
+  const start = E.lat != null ? [E.lat, E.lng] : (biasPoint() || [36.1627, -86.7816]);
+  const m = L.map('r-pickmap').setView(start, E.lat != null ? 17 : 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(m);
+  E.pickMap = m;
+  const place = ll => {
+    E.lat = ll.lat; E.lng = ll.lng; E.manualLoc = true; E.addrChanged = false;
+    if (!E.pickPin) { E.pickPin = L.marker(ll, { draggable: true, icon: pickIcon() }).addTo(m); E.pickPin.on('dragend', ev => place(ev.target.getLatLng())); }
+    else E.pickPin.setLatLng(ll);
+    renderLoc();
+  };
+  if (E.lat != null) { E.pickPin = L.marker(start, { draggable: true, icon: pickIcon() }).addTo(m); E.pickPin.on('dragend', ev => place(ev.target.getLatLng())); }
+  m.on('click', ev => place(ev.latlng));
+  setTimeout(() => m.invalidateSize(), 60);
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 function renderRestLists() {
   const el = $('#r-lists'); if (!el) return;
   el.innerHTML = S.lists.map(l => `<button type="button" class="chip ${E.lists.includes(l.id) ? 'on' : ''}" data-a="rlist" data-v="${l.id}">${E.lists.includes(l.id) ? '✓ ' : ''}${esc(l.name)}</button>`).join('') || '<span class="help">리스트가 없어요. 식당 탭의 "+ 리스트 관리"에서 만들 수 있어요.</span>';
@@ -582,6 +609,8 @@ const H = {
   rest: a => { if (S.map) S.map.closePopup(); if (!a.dataset.id) return; closeDishView(); openDetail(a.dataset.id); },
   closedetail: () => { S.detail = null; $('#detail').hidden = true; },
   editrest: a => openRest(a.dataset.id),
+  pickrest: a => openRest(a.dataset.id, true),
+  pickmap: () => openPickMap(),
   newrest: () => openRest(null),
   lists: () => openLists(),
   settings: () => openSettings(),

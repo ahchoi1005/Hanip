@@ -96,6 +96,7 @@ h1{font-family:var(--f-display);font-weight:400;font-size:30px;margin:0;letter-s
 @media (prefers-color-scheme:dark){.gray-tiles{filter:grayscale(1) invert(1) brightness(.85) contrast(.85)}}
 .leaflet-interactive.pin{filter:drop-shadow(0 1px 3px rgba(0,0,0,.45))}
 .pin-label{font-family:var(--f-body);font-weight:600;font-size:12px;border:0;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.pick-pin{background:var(--accent);border:3px solid #fff;border-radius:50%;box-shadow:0 1px 5px rgba(0,0,0,.5)}
 .pop-t{font-weight:600;font-size:14px}
 .ov{position:fixed;inset:0;z-index:1000;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;
   padding-inline:max(16px,env(safe-area-inset-left));padding-block:calc(8px + env(safe-area-inset-top,0px)) calc(110px + env(safe-area-inset-bottom,0px))}
@@ -196,10 +197,10 @@ textarea.in{min-height:80px;resize:vertical}
 <div id="lb" class="lb" hidden data-a="lbclose"><img id="lbimg" alt=""></div>
 <div id="toast" class="toast" hidden></div>
 
-<script src="config.js"></script>
+<script src="config.js?v=20260929d"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=20260929d"></script>
 </body>
 </html>
