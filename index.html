@@ -92,6 +92,8 @@ h1{font-family:var(--f-display);font-weight:400;font-size:30px;margin:0;letter-s
 #mapwrap{height:calc(100vh - 230px);min-height:360px;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
 #map{height:100%;width:100%}
 .leaflet-container{font-family:var(--f-body)}
+.gray-tiles{filter:grayscale(1) brightness(1.06) contrast(.8)}
+@media (prefers-color-scheme:dark){.gray-tiles{filter:grayscale(1) invert(1) brightness(.85) contrast(.85)}}
 .leaflet-interactive.pin{filter:drop-shadow(0 1px 3px rgba(0,0,0,.45))}
 .pin-label{font-family:var(--f-body);font-weight:600;font-size:12px;border:0;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
 .pop-t{font-weight:600;font-size:14px}

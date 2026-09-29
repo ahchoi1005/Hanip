@@ -163,12 +163,8 @@ function renderMap(F) {
   if (!window.L) { $('#mapwrap').innerHTML = '<div class="empty">지도를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.</div>'; return; }
   if (!S.map) {
     S.map = L.map('map', { zoomControl: true }).setView([36.1627, -86.7816], 12);
-    // 심플한 회색톤 지도 (CARTO Positron / 다크 모드는 Dark Matter)
-    const dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
-      subdomains: 'abcd', maxZoom: 20,
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-    }).addTo(S.map);
+    // 기본 OpenStreetMap 지도를 CSS로 회색톤 처리 (API 키 필요 없음)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap', className: 'gray-tiles' }).addTo(S.map);
     S.layer = L.layerGroup().addTo(S.map);
     S.map.on('dragend zoomend', () => { S.mapMoved = true; });
   }
