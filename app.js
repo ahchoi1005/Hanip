@@ -163,14 +163,20 @@ function renderMap(F) {
   if (!window.L) { $('#mapwrap').innerHTML = '<div class="empty">지도를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.</div>'; return; }
   if (!S.map) {
     S.map = L.map('map', { zoomControl: true }).setView([36.1627, -86.7816], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(S.map);
+    // 심플한 회색톤 지도 (CARTO Positron / 다크 모드는 Dark Matter)
+    const dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+      subdomains: 'abcd', maxZoom: 20,
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+    }).addTo(S.map);
     S.layer = L.layerGroup().addTo(S.map);
     S.map.on('dragend zoomend', () => { S.mapMoved = true; });
   }
   S.layer.clearLayers();
   const rows = restRows().filter(x => x.r.lat != null && x.r.lng != null);
   rows.forEach(({ r, a, ds }) => {
-    const m = L.circleMarker([r.lat, r.lng], { radius: 10, weight: 2, color: '#ffffff', fillColor: tierColor(a), fillOpacity: .95 });
+    const m = L.circleMarker([r.lat, r.lng], { radius: 11, weight: 3, color: '#ffffff', fillColor: tierColor(a), fillOpacity: 1, className: 'pin' });
+    m.bindTooltip(esc(r.name), { direction: 'top', offset: [0, -10], className: 'pin-label' });
     m.bindPopup(`<div class="pop-t">${esc(r.name)}</div><div>${a != null ? `평균 ${fmt(a)}${unit()} · 메뉴 ${ds.length}개` : '아직 기록 없음'}</div><button class="linkbtn" data-a="rest" data-id="${r.id}" style="padding:4px 0">자세히 보기 ›</button>`);
     S.layer.addLayer(m);
   });
