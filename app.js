@@ -8,7 +8,7 @@ const FREE_BYTES = 1024 * 1024 * 1024; // Supabase 무료 저장 용량 1GB
 
 const S = {
   rest: new Map(), dishes: new Map(), lists: [],
-  tab: 'dishes', tag: null, min: 0, sort: 'score', q: '', list: null,
+  tab: 'dishes', tag: null, scores: new Set(), sort: 'score', q: '', list: null,
   scale: '10', detail: null, user: null, here: null, urls: new Map(),
 };
 try { S.scale = localStorage.getItem('hanip-scale') || '10'; } catch (e) {}
@@ -18,6 +18,19 @@ let sb = null, E = null;
 const fmt = r => S.scale === '5' ? (r / 2).toFixed(1) : String(Math.round(r * 10) / 10);
 const unit = () => S.scale === '5' ? '/5' : '/10';
 const tier = r => r >= 9 ? 't4' : r >= 7 ? 't3' : r >= 5 ? 't2' : 't1';
+const DEFAULT_GUIDE = {
+  10: { name: '인생 메뉴', desc: '이거 먹으러 일부러 다시 간다. 흠잡을 데가 없다' },
+  9: { name: '최고', desc: '무조건 다시 시킨다. 단점이 거의 없다' },
+  8: { name: '아주 좋음', desc: '재주문 의사 확실. 사소한 아쉬움 정도' },
+  7: { name: '좋음', desc: '다시 먹을 만하다. 장점이 단점보다 확실히 많다' },
+  6: { name: '양호', desc: '그냥저냥 괜찮은, 단점보다 장점이 약간 더' },
+  5: { name: '평범', desc: '돈 내고 다시 시켜먹기 애매, 장점/단점 비슷한' },
+  4: { name: '아쉬움', desc: '단점이 장점보다 약간 더. 다시 시키진 않는다' },
+  3: { name: '별로', desc: '단점이 확실히 많다' },
+  2: { name: '실망', desc: '먹기 힘든 수준에 가깝다' },
+  1: { name: '최악', desc: '돈이 아깝다. 거의 못 먹었다' },
+};
+const guideOf = r => (S.guide && S.guide[Math.round(r)]) || DEFAULT_GUIDE[Math.round(r)] || { name: '', desc: '' };
 const badge = r => `<span class="badge ${tier(r)}">${fmt(r)}<small>${unit()}</small></span>`;
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const dshow = s => s ? String(s).replace(/-/g, '.') : '';
@@ -113,18 +126,32 @@ function render() {
   if (S.detail) renderDetail();
   if (S.dview) renderDishView();
 }
+function histogram(arr) {
+  const c = Array(11).fill(0); arr.forEach(d => { const r = Math.round(d.rating); if (r >= 1 && r <= 10) c[r]++; });
+  const max = Math.max(1, ...c.slice(1)); const sel = S.scores;
+  const cols = [];
+  for (let v = 1; v <= 10; v++) {
+    const g = guideOf(v), h = c[v] ? Math.max(6, Math.round(c[v] / max * 100)) : 0;
+    const on = sel.has(v), dim = sel.size && !on;
+    cols.push(`<button class="hcol ${on ? 'on' : ''} ${dim ? 'dim' : ''}" data-a="score" data-v="${v}" title="${fmt(v)}점 ${esc(g.name)} · ${c[v]}개" aria-pressed="${on}">
+      <span class="hn">${c[v] || ''}</span><span class="hb-wrap"><span class="hb ${tier(v)}" style="height:${h}%"></span></span><span class="hl">${S.scale === '5' ? (v / 2).toFixed(1).replace('.0', '') : v}</span></button>`);
+  }
+  const selTxt = sel.size ? [...sel].sort((a, b) => b - a).map(v => `${fmt(v)}점 ${esc(guideOf(v).name)}`).join(', ') : '';
+  return `<div class="hist-card"><div class="hist-top"><span class="hist-t">점수 분포 <span class="help">막대를 눌러 점수별로 보기</span></span>${sel.size ? `<button class="linkbtn" data-a="scoreclear">선택 해제</button>` : `<button class="linkbtn" data-a="guide">점수 기준 ›</button>`}</div>
+  <div class="hist">${cols.join('')}</div>${sel.size ? `<div class="help hist-sel">선택: ${selTxt}</div>` : ''}</div>`;
+}
 function renderDishes(F, L) {
   const all = [...S.dishes.values()];
   if (!all.length) { F.innerHTML = ''; L.innerHTML = `<div class="empty"><h2>첫 메뉴를 기록해 보세요</h2>먹은 메뉴의 사진, 점수, 음식 종류를 남기면<br>여기서 종류별·점수별로 모아볼 수 있어요.<div style="margin-top:16px"><button class="btn" data-a="add">+ 첫 기록 남기기</button></div></div>`; return; }
   const counts = {}; all.forEach(d => (d.tags || []).forEach(t => counts[t] = (counts[t] || 0) + 1));
   const tags = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b));
-  const mins = S.scale === '5' ? [[0, '전체 점수'], [9, '4.5+'], [8, '4+'], [7, '3.5+']] : [[0, '전체 점수'], [9, '9+'], [8, '8+'], [7, '7+']];
   F.innerHTML = `<div class="chips"><button class="chip ${!S.tag ? 'on' : ''}" data-a="tag" data-v="">모든 종류</button>${tags.map(t => `<button class="chip ${S.tag === t ? 'on' : ''}" data-a="tag" data-v="${esc(t)}">${esc(t)}<span class="n">${counts[t]}</span></button>`).join('')}</div>
-  <div class="chips">${mins.map(([v, l]) => `<button class="chip ${S.min === v ? 'on' : ''}" data-a="min" data-v="${v}">${l}</button>`).join('')}</div>`;
+`;
   let arr = all; const q = S.q.trim().toLowerCase();
   if (q) arr = arr.filter(d => { const r = S.rest.get(d.restaurant_id); return [d.name, r && r.name, r && r.address, d.note, ...(d.tags || [])].some(x => x && String(x).toLowerCase().includes(q)); });
   if (S.tag) arr = arr.filter(d => (d.tags || []).includes(S.tag));
-  if (S.min) arr = arr.filter(d => d.rating >= S.min);
+  F.innerHTML += histogram(arr);
+  if (S.scores.size) arr = arr.filter(d => S.scores.has(Math.round(d.rating)));
   arr.sort(S.sort === 'score' ? (a, b) => b.rating - a.rating || cmpDate(b, a) : (a, b) => cmpDate(b, a));
   L.innerHTML = `<div class="bar"><span>메뉴 ${arr.length}개</span><button class="linkbtn" data-a="sort" data-v="${S.sort === 'score' ? 'recent' : 'score'}">${S.sort === 'score' ? '점수 높은 순 ⇅' : '최근 먹은 순 ⇅'}</button></div>` +
     (arr.length ? `<div class="grid">${arr.map(dishCard).join('')}</div>` : `<div class="empty">조건에 맞는 메뉴가 없어요.</div>`);
@@ -228,7 +255,7 @@ function renderDishView() {
   el.innerHTML = `<div class="wrap"><div class="ovhead"><button class="back" data-a="closedview">‹ 목록</button><button class="btn small" data-a="dish" data-id="${d.id}">수정</button></div>
   ${ph.length ? `<img class="hero" src="${esc(photoUrl(ph[0]))}" alt="" data-a="photo" data-p="${esc(ph[0].path)}">` : `<div class="hero-empty">${esc((d.name || '?').slice(0, 1))}</div>`}
   ${ph.length > 1 ? `<div class="strip" style="margin-top:8px">${ph.slice(1).map(p => `<img src="${esc(photoUrl(p))}" alt="" data-a="photo" data-p="${esc(p.path)}" loading="lazy">`).join('')}</div>` : ''}
-  <div class="dv-head"><div class="dtitle">${esc(d.name)}</div>${badge(d.rating)}</div>
+  <div class="dv-head"><div class="dtitle">${esc(d.name)}</div><div style="text-align:right;flex:none">${badge(d.rating)}<div class="help" style="margin-top:4px">${esc(guideOf(d.rating).name)}</div></div></div>
   <div class="help" style="font-size:14px;margin-top:4px">${[dshow(d.date), d.price].filter(Boolean).map(esc).join(' · ')}</div>
   ${(d.tags || []).length ? `<div class="tags" style="margin-top:8px">${d.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
   <button class="restlink" data-a="rest" data-id="${esc(r.id || '')}"><div style="min-width:0"><div class="t">${esc(r.name || '식당 정보 없음')}</div><div class="s">${esc(r.address || '')}</div></div><span class="linkbtn" style="white-space:nowrap;flex:none">식당 보기 ›</span></button>
@@ -236,6 +263,37 @@ function renderDishView() {
   ${others.length ? `<div class="sec">이 식당의 다른 메뉴</div><div class="rows">${others.map(x => `<button class="rrow" data-a="viewdish" data-id="${x.id}"><div class="main"><div class="t">${esc(x.name)}</div><div class="s">${dshow(x.date)}</div></div>${badge(x.rating)}</button>`).join('')}</div>` : ''}
   </div>`;
   el.hidden = false;
+}
+
+/* ---------- score guide ---------- */
+function openGuide(edit, keepDraft) {
+  const el = $('#guide');
+  const prevE = el.hidden ? null : el._draft;
+  const draft = keepDraft && E && E.draft ? E.draft : (prevE || JSON.parse(JSON.stringify(Object.assign({}, DEFAULT_GUIDE, S.guide || {}))));
+  if (E && keepDraft) E.draft = null;
+  el._draft = draft; el._edit = !!edit;
+  const rows = [];
+  for (let v = 10; v >= 1; v--) {
+    const g = draft[v] || { name: '', desc: '' };
+    rows.push(edit
+      ? `<div class="grow-row">${badge(v)}<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><input class="in" id="g-n-${v}" value="${esc(g.name)}" placeholder="이름 (예: 평범)"><input class="in" id="g-d-${v}" value="${esc(g.desc)}" placeholder="설명"></div></div>`
+      : `<div class="grow-row">${badge(v)}<div style="min-width:0"><div class="t">${esc(g.name)}</div><div class="s">${esc(g.desc)}</div></div></div>`);
+  }
+  el.innerHTML = `<div class="wrap"><div class="ovhead"><button class="back" data-a="guideclose">${edit ? '취소' : '닫기'}</button><h2>점수 기준표</h2>${edit ? `<button class="btn small" id="g-save" data-a="guidesave">저장</button>` : `<button class="btn ghost small" data-a="guideedit">편집</button>`}</div>
+  <div class="help" style="margin-bottom:12px">${S.scale === '5' ? '★5점 표시는 이 기준의 절반 값이에요 (예: 9점 = 4.5).' : '메뉴 점수를 매길 때 이 기준을 참고하세요.'}</div>
+  <div class="rows">${rows.join('')}</div><div class="err" id="g-err" style="margin-top:10px"></div>
+  ${edit ? `<div class="actions"><button class="btn ghost small" data-a="guidereset">기본 기준으로 되돌리기</button></div>` : ''}</div>`;
+  el.hidden = false; el.scrollTop = 0;
+}
+function readGuideDraft() {
+  const g = {}; for (let v = 1; v <= 10; v++) g[v] = { name: ($('#g-n-' + v).value || '').trim(), desc: ($('#g-d-' + v).value || '').trim() }; return g;
+}
+async function saveGuide() {
+  const g = readGuideDraft(); const btn = $('#g-save'); btn.disabled = true;
+  const { error } = await sb.auth.updateUser({ data: { score_guide: g } });
+  if (error) { btn.disabled = false; $('#g-err').textContent = errMsg(error); return; }
+  S.guide = g; toast('기준표를 저장했어요'); $('#guide')._draft = null; openGuide(false); render();
+  if (E && E.kind === 'dish') renderRate();
 }
 
 /* ---------- sheets ---------- */
@@ -278,7 +336,7 @@ function openDish({ dishId = null, restId = null } = {}) {
   openSheet(`<div class="ovhead"><button class="back" data-a="cancel">취소</button><h2>${d ? '메뉴 수정' : '새 기록'}</h2><button class="btn" id="e-save" data-a="savedish">저장</button></div>
   <div class="f"><span class="lbl">식당</span><div id="e-rest"></div></div>
   <div class="f"><label for="e-name">메뉴 이름</label><input id="e-name" class="in" value="${esc(d ? d.name : '')}" placeholder="예: 핫치킨 샌드위치"></div>
-  <div class="f"><span class="lbl">점수 <span class="ratehint" id="e-rv"></span></span><div class="rate" id="e-rate"></div></div>
+  <div class="f"><span class="lbl">점수 <span class="ratehint" id="e-rv"></span></span><div class="rate" id="e-rate"></div><div class="gline" id="e-guide"></div></div>
   <div class="f"><span class="lbl">사진</span><div class="phs" id="e-phs"></div><input id="e-file" type="file" accept="image/*" multiple hidden></div>
   <div class="f"><label for="e-tag">음식 종류 태그</label><div class="tags" id="e-tags"></div><input id="e-tag" class="in" placeholder="입력 후 Enter (예: 치킨, 버거)" autocomplete="off" enterkeyhint="done"><div class="chips wrapc" id="e-tagsug" style="margin:0"></div></div>
   <div class="two"><div class="f"><label for="e-date">먹은 날</label><input id="e-date" type="date" class="in" value="${esc(d && d.date || today())}"></div>
@@ -309,6 +367,8 @@ function renderRate() {
   const el = $('#e-rate'); if (!el) return;
   el.innerHTML = Array.from({ length: 10 }, (_, i) => i + 1).map(v => `<button type="button" data-a="rate" data-v="${v}" class="${v === E.rating ? 'on' : v < E.rating ? 'fill' : ''}" aria-label="${fmt(v)}점">${S.scale === '5' ? (v / 2).toFixed(1).replace('.0', '') : v}</button>`).join('');
   $('#e-rv').textContent = E.rating ? `${fmt(E.rating)} ${unit()}` : '';
+  const g = E.rating ? guideOf(E.rating) : null;
+  $('#e-guide').innerHTML = g ? `<b>${esc(g.name)}</b> — ${esc(g.desc)} <button type="button" class="linkbtn" data-a="guide" style="padding:0 0 0 4px">기준표</button>` : `점수를 누르면 기준이 보여요. <button type="button" class="linkbtn" data-a="guide" style="padding:0">기준표 보기</button>`;
 }
 function renderPhotos() {
   const el = $('#e-phs'); if (!el) return;
@@ -599,7 +659,13 @@ const H = {
   scale: a => { S.scale = a.dataset.v; try { localStorage.setItem('hanip-scale', S.scale); } catch (e) {} render(); if (E && E.kind === 'settings') openSettings(); },
   tab: a => { S.tab = a.dataset.v; S.sort = 'score'; render(); },
   tag: a => { S.tag = a.dataset.v || null; render(); },
-  min: a => { S.min = +a.dataset.v; render(); },
+  score: a => { const v = +a.dataset.v; S.scores.has(v) ? S.scores.delete(v) : S.scores.add(v); render(); },
+  scoreclear: () => { S.scores.clear(); render(); },
+  guide: () => { $('#guide')._draft = null; openGuide(false); },
+  guideclose: () => { const el = $('#guide'); if (el._edit) { el._draft = null; openGuide(false); } else { el.hidden = true; el.innerHTML = ''; } },
+  guideedit: () => openGuide(true),
+  guidesave: () => saveGuide(),
+  guidereset: () => { $('#guide')._draft = JSON.parse(JSON.stringify(DEFAULT_GUIDE)); openGuide(true); },
   sort: a => { S.sort = a.dataset.v; render(); },
   list: a => { S.list = a.dataset.v || null; render(); },
   add: a => openDish({ restId: a.dataset.r || null }),
@@ -655,6 +721,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 async function showApp() {
   $('#boot').hidden = true; $('#login').hidden = true; $('#app').hidden = false; $('#fab').hidden = false;
   $('#list').innerHTML = '<div class="empty">기록을 불러오는 중…</div>';
+  sb.auth.getUser().then(({ data }) => { if (data && data.user) { S.user = data.user; S.guide = (data.user.user_metadata || {}).score_guide || null; render(); } }).catch(() => {});
   try { await reload(); } catch (e) { $('#list').innerHTML = `<div class="empty"><h2>기록을 불러오지 못했어요</h2>${esc(errMsg(e))}<br><span class="help">안내서의 Supabase 설정(SQL 실행)을 마쳤는지 확인해 주세요.</span></div>`; }
 }
 function showLogin() { $('#boot').hidden = true; $('#app').hidden = true; $('#fab').hidden = true; $('#login').hidden = false; }
@@ -668,7 +735,7 @@ function showLogin() { $('#boot').hidden = true; $('#app').hidden = true; $('#fa
   const baseUrl = m ? m[0] : String(CFG.SUPABASE_URL).trim();
   sb = window.supabase.createClient(baseUrl, String(CFG.SUPABASE_ANON_KEY).trim(), { auth: { persistSession: true, autoRefreshToken: true } });
   const { data } = await sb.auth.getSession();
-  if (data.session) { S.user = data.session.user; showApp(); } else showLogin();
+  if (data.session) { S.user = data.session.user; S.guide = (S.user.user_metadata || {}).score_guide || null; showApp(); } else showLogin();
   sb.auth.onAuthStateChange((ev, session) => { if (ev === 'SIGNED_OUT') { S.user = null; showLogin(); } else if (session) S.user = session.user; });
 })();
 $('#loginform').addEventListener('submit', async ev => {
@@ -676,5 +743,5 @@ $('#loginform').addEventListener('submit', async ev => {
   const { data, error } = await sb.auth.signInWithPassword({ email: $('#lg-email').value.trim(), password: $('#lg-pw').value });
   btn.disabled = false;
   if (error) { er.textContent = /Invalid login/i.test(error.message) ? '이메일이나 비밀번호가 맞지 않아요.' : errMsg(error); return; }
-  S.user = data.user; showApp();
+  S.user = data.user; S.guide = (S.user.user_metadata || {}).score_guide || null; showApp();
 });

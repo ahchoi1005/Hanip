@@ -116,6 +116,26 @@ h1{font-family:var(--f-display);font-weight:400;font-size:30px;margin:0;letter-s
 .strip img{height:120px;width:auto;border-radius:10px;flex:none;cursor:zoom-in;max-width:none;background:var(--soft)}
 .hero{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:16px;display:block;background:var(--soft);cursor:zoom-in;max-width:100%}
 .hero-empty{width:100%;aspect-ratio:16/7;border-radius:16px;background:var(--soft);display:grid;place-items:center;font-family:var(--f-display);font-size:56px;color:var(--muted)}
+.hist-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 12px 8px;margin-bottom:12px}
+.hist-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.hist-t{font-weight:600;font-size:14px}
+.hist{display:grid;grid-template-columns:repeat(10,1fr);gap:2px;align-items:end}
+.hcol{border:0;background:none;padding:2px 0 0;display:flex;flex-direction:column;align-items:center;gap:3px;border-radius:8px;min-width:0}
+.hcol:hover{background:var(--soft)}
+.hn{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;min-height:15px;line-height:15px}
+.hb-wrap{height:72px;width:100%;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid var(--line)}
+.hb{width:70%;max-width:26px;border-radius:4px 4px 0 0;background:var(--muted);transition:opacity .15s}
+.hb.t4{background:var(--gold)}.hb.t3{background:var(--t3)}.hb.t2{background:var(--t2)}.hb.t1{background:var(--t1)}
+.hl{font-family:var(--f-num);font-weight:600;font-size:12px;color:var(--ink);font-variant-numeric:tabular-nums;padding:2px 6px;border-radius:6px}
+.hcol.on .hl{background:var(--ink);color:var(--bg)}
+.hcol.dim .hb{opacity:.25}.hcol.dim .hn{opacity:.4}
+.hist-sel{margin-top:6px}
+.gline{font-size:13px;color:var(--muted);background:var(--soft);border-radius:8px;padding:7px 10px}
+.gline b{color:var(--ink)}
+#guide{z-index:2000}
+.grow-row{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.grow-row .badge{min-width:56px;justify-content:center}
+.grow-row .t{font-weight:600}.grow-row .s{font-size:14px;color:var(--muted)}
 .dv-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:14px}
 .dv-head .dtitle{margin:0}
 .dv-head .badge{font-size:24px;padding:5px 12px}
@@ -178,7 +198,7 @@ textarea.in{min-height:80px;resize:vertical}
 <div id="app" class="wrap" hidden>
   <header class="top">
     <h1>한입 기록장</h1>
-    <button class="btn ghost small" data-a="settings">설정 · 백업</button>
+    <div style="display:flex;gap:6px"><button class="btn ghost small" data-a="guide">점수 기준</button><button class="btn ghost small" data-a="settings">설정 · 백업</button></div>
   </header>
   <nav class="tabs">
     <button id="tab-dishes" data-a="tab" data-v="dishes">메뉴</button>
@@ -194,13 +214,14 @@ textarea.in{min-height:80px;resize:vertical}
 <section id="detail" class="ov" hidden></section>
 <section id="dview" class="ov" hidden></section>
 <section id="sheet" class="ov" hidden></section>
+<section id="guide" class="ov" hidden></section>
 <div id="lb" class="lb" hidden data-a="lbclose"><img id="lbimg" alt=""></div>
 <div id="toast" class="toast" hidden></div>
 
-<script src="config.js?v=20260929d"></script>
+<script src="config.js?v=20261001a"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="app.js?v=20260929d"></script>
+<script src="app.js?v=20261001a"></script>
 </body>
 </html>
