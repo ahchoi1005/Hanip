@@ -10,7 +10,7 @@ on:
 
 permissions:
   contents: read
-  actions: write   # 아래 keepalive 단계가 이 워크플로를 계속 켜 두는 데 필요
+  actions: write   # 아래 마지막 단계가 이 워크플로를 계속 켜 두는 데 필요
 
 jobs:
   ping:
@@ -36,7 +36,8 @@ jobs:
           fi
 
       # GitHub는 60일 동안 저장소에 변화가 없으면 예약 실행을 자동으로 끕니다.
-      # 이 단계가 그걸 막아 줍니다 (커밋을 만들지 않고 API로 처리).
-      - uses: gautamkrishnar/keepalive-workflow@v2
-        with:
-          use_api: true
+      # 실행할 때마다 이 워크플로를 다시 '켜기' 상태로 만들어 그걸 막습니다.
+      - name: Keep workflow enabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/keep-alive.yml/enable"
